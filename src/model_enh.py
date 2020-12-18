@@ -190,7 +190,7 @@ class add_model(nn.Module):
 
         for i in range(2, 7):
             add_blocks['add_block%d_1' % i] = OrderedDict([
-                    ('add_Mconv1_stage%d_L1' % i, [131, 128, 7, 1, 3]),
+                    ('add_Mconv1_stage%d_L1' % i, [140, 128, 7, 1, 3]),
                     ('add_Mconv2_stage%d_L1' % i, [128, 128, 7, 1, 3]),
                     ('add_Mconv3_stage%d_L1' % i, [128, 128, 7, 1, 3]),
                     ('add_Mconv4_stage%d_L1' % i, [128, 128, 7, 1, 3]),
@@ -200,7 +200,7 @@ class add_model(nn.Module):
                 ])
 
             add_blocks['add_block%d_2' % i] = OrderedDict([
-                    ('add_Mconv1_stage%d_L2' % i, [131, 128, 7, 1, 3]),
+                    ('add_Mconv1_stage%d_L2' % i, [140, 128, 7, 1, 3]),
                     ('add_Mconv2_stage%d_L2' % i, [128, 128, 7, 1, 3]),
                     ('add_Mconv3_stage%d_L2' % i, [128, 128, 7, 1, 3]),
                     ('add_Mconv4_stage%d_L2' % i, [128, 128, 7, 1, 3]),

@@ -8,24 +8,24 @@ from torch.nn import DataParallel
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from get_parameters import get_parameters_conv, get_parameters_conv_depthwise
+from src.get_parameters import get_parameters_conv, get_parameters_conv_depthwise
 
 from src import model
 from src import util
 from src.body_enh import Body
 from src.model_enh import add_model
-from coco import CocoTrainDataset
-from loss import l2_loss
+from src.coco import CocoTrainDataset
+from src.loss import l2_loss
 
 
-json_open = open('data/create/all_data.json', 'r')
+json_open = open('../data/json/top_finish.json', 'r')
 data = json.load(json_open)
 
-body = Body('model/body_pose_model.pth', "", False)
+body = Body('../data/model/body_pose_model.pth', "", False)
 golf = add_model()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(torch.cuda.is_available())
-batch_size = 5
+batch_size = 1
 num_workers = 1
 stride = 8
 sigma = 7
@@ -38,7 +38,7 @@ drop_after_epoch = [100, 200, 260]
 checkpoints_folder = "golf_model/tip_model"
 print(checkpoints_folder)
 
-dataset = CocoTrainDataset('data/create/all_data.json', '',
+dataset = CocoTrainDataset('../data/json/top_finish.json', '',
                                stride, sigma, path_thickness)
 """                               
                                transform=transforms.Compose([
@@ -90,33 +90,22 @@ for epochId in range(current_epoch, 10000):
             images = cv2.imread(batch_data['path'][i])
             keypoint_maps = batch_data['keypoint_maps'][i].cuda(device)
             paf_maps = batch_data['paf_maps'][i].cuda(device)
-            featureImage, candidate, subset = body(images, False)
+            featureImage, candidate, subset, ALL_PEAKS = body(images, False)
             stages_output = golf(featureImage)
-            
-            # cv2.imwrite("images/rose_slow_ann/%d.jpg"%(0), images)
-            # for k in [38, 39, 40, 41]:
-            #     tipImg = paf_maps[k].to('cpu').detach().numpy().copy()
-            #     print(tipImg.shape, tipImg.min(), tipImg.max())
-            #     tipImg = np.resize(tipImg, (135, 240, 1))
-            #     tipImg = (tipImg - tipImg.min())/(tipImg.max()-tipImg.min())*255
-            #     tipImg = np.array(tipImg, dtype='uint8')
-            #     cv2.imwrite("images/rose_slow_ann/%d.jpg"%(k), tipImg)
-            # tipImg = keypoint_maps[18].to('cpu').detach().numpy().copy()
-            # print(tipImg.shape, tipImg.min(), tipImg.max())
-            # tipImg = np.resize(tipImg, (135, 240, 1))
-            # tipImg = (tipImg - tipImg.min())/(tipImg.max()-tipImg.min())*255
-            # tipImg = np.array(tipImg, dtype='uint8')
-            # cv2.imwrite("images/rose_slow_ann/%d.jpg"%(50), tipImg)
-            
 
-       
-            for loss_idx in range(len(total_losses) // 2):
-                losses.append(l2_loss(stages_output[loss_idx * 2][0][0], paf_maps[0], images.shape[0]))
-                losses.append(l2_loss(stages_output[loss_idx * 2][0][1], paf_maps[1], images.shape[0]))
-                losses.append(l2_loss(stages_output[loss_idx * 2 + 1][0], keypoint_maps[0], images.shape[0]))
-                total_losses[loss_idx * 2] += losses[-3].item() / batches_per_iter
-                total_losses[loss_idx * 2] += losses[-2].item() / batches_per_iter
-                total_losses[loss_idx * 2 + 1] += losses[-1].item() / batches_per_iter
+            # for i in range(len(keypoint_maps)):
+            #     KEY_img = keypoint_maps[i].to('cpu').detach().numpy().copy()
+            #     cv2.imshow("S", KEY_img)
+            #     cv2.waitKey()
+
+            for KEY in range(len(paf_maps)//2):
+                for loss_idx in range(len(total_losses) // 2):
+                    losses.append(l2_loss(stages_output[loss_idx * 2][0][KEY*2], paf_maps[KEY*2], images.shape[0]))
+                    losses.append(l2_loss(stages_output[loss_idx * 2][0][KEY*2+1], paf_maps[KEY*2+1], images.shape[0]))
+                    losses.append(l2_loss(stages_output[loss_idx * 2 + 1][0][KEY], keypoint_maps[KEY], images.shape[0]))
+                    total_losses[loss_idx * 2] += losses[-3].item() / batches_per_iter
+                    total_losses[loss_idx * 2] += losses[-2].item() / batches_per_iter
+                    total_losses[loss_idx * 2 + 1] += losses[-1].item() / batches_per_iter
                 
         loss = losses[0]
         for loss_idx in range(1, len(losses)):
