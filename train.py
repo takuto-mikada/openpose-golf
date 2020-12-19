@@ -25,17 +25,17 @@ body = Body('../data/model/body_pose_model.pth', "", False)
 golf = add_model()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(torch.cuda.is_available())
-batch_size = 1
+batch_size = 5
 num_workers = 1
 stride = 8
 sigma = 7
 path_thickness = 1
-batches_per_iter = 1
+batches_per_iter = 10
 log_after = 10
 checkpoint_after = 100
 val_after = 100000
 drop_after_epoch = [100, 200, 260]
-checkpoints_folder = "golf_model/tip_model"
+checkpoints_folder = "../data/golf_model/left_arm_model"
 print(checkpoints_folder)
 
 dataset = CocoTrainDataset('../data/json/top_finish.json', '',
@@ -128,12 +128,13 @@ for epochId in range(current_epoch, 10000):
                     loss_idx + 1, total_losses[loss_idx * 2] / log_after))
             for loss_idx in range(len(total_losses)):
                 total_losses[loss_idx] = 0
-            print(np.array(stages_output[10][0][0].to('cpu').detach().numpy().copy(), dtype=np.uint8).shape)
-            cv2.imwrite("golf_model/tip_model_image/%04d_map1.jpg"%(num_iter), np.reshape(np.array(stages_output[10][0][0].to('cpu').detach().numpy().copy(), dtype=np.uint8), (135, 240, 1)))
-            cv2.imwrite("golf_model/tip_model_image/%04d_map2.jpg"%(num_iter), np.reshape(np.array(stages_output[10][0][1].to('cpu').detach().numpy().copy(), dtype=np.uint8), (135, 240, 1)))
-            cv2.imwrite("golf_model/tip_model_image/%04d_key.jpg"%(num_iter), np.reshape(np.array(stages_output[11][0].to('cpu').detach().numpy().copy(), dtype=np.uint8), (135, 240, 1)))
+            # print(np.array(stages_output[10][0][0].to('cpu').detach().numpy().copy(), dtype=np.uint8).shape)
+            # cv2.imwrite("golf_model/tip_model_image/%04d_map1.jpg"%(num_iter), np.reshape(np.array(stages_output[10][0][0].to('cpu').detach().numpy().copy(), dtype=np.uint8), (135, 240, 1)))
+            # cv2.imwrite("golf_model/tip_model_image/%04d_map2.jpg"%(num_iter), np.reshape(np.array(stages_output[10][0][1].to('cpu').detach().numpy().copy(), dtype=np.uint8), (135, 240, 1)))
+            # cv2.imwrite("golf_model/tip_model_image/%04d_key.jpg"%(num_iter), np.reshape(np.array(stages_output[11][0].to('cpu').detach().numpy().copy(), dtype=np.uint8), (135, 240, 1)))
         if num_iter % checkpoint_after == 0:
             snapshot_name = '{}/checkpoint_iter_{}.pth'.format(checkpoints_folder, num_iter)
+            print(snapshot_name)
             torch.save(golf.state_dict(),
                         # 'optimizer': optimizer.state_dict(),
                         # 'scheduler': scheduler.state_dict(),
