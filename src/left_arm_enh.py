@@ -12,16 +12,25 @@ from src import util
 from src.model_enh import bodypose_model, add_model
 
 class Body(object):
-    def __init__(self, model_path):
+    def __init__(self, model_path, add_model_path, add=True):
         self.model = bodypose_model()
         if torch.cuda.is_available():
             self.model = self.model.cuda()
         model_dict = util.transfer(self.model, torch.load(model_path))
         self.model.load_state_dict(model_dict)
         self.model.eval()
+        
+        if add:
+            self.add_model = add_model()
+            if torch.cuda.is_available():
+                self.add_model = self.add_model.cuda()
+            add_model_dict = util.add_transfer(self.add_model, torch.load(add_model_path))#,  map_location=torch.device('cpu')))
+            self.add_model.load_state_dict(add_model_dict)
+            # self.add_model.load_state_dict(torch.load(add_model_path))
+            self.add_model.eval()
 
 
-    def __call__(self, oriImg):
+    def __call__(self, oriImg, TRAIN=True):
         # scale_search = [0.5, 1.0, 1.5, 2.0]
         scale_search = [0.5]
         boxsize = 368
@@ -50,7 +59,37 @@ class Body(object):
             
             Mconv7_stage6_L1 = Mconv7_stage6_L1.cpu().numpy()
             Mconv7_stage6_L2 = Mconv7_stage6_L2.cpu().numpy()
-            
+            if TRAIN:
+                heatmap_avg = np.zeros((oriImg.shape[0], oriImg.shape[1], 20))
+                paf_avg = np.zeros((oriImg.shape[0], oriImg.shape[1], 40))
+                with torch.no_grad():
+                    tippoint = self.add_model(featureImage)
+                tippoint_L1 = tippoint[10].cpu().numpy()
+                tippoint_L2 = tippoint[11].cpu().numpy()
+                print(Mconv7_stage6_L1.shape, Mconv7_stage6_L2.shape)
+                Mconv7_stage6_L1 = np.reshape(Mconv7_stage6_L1, (23, 41, 38))
+                tippoint_L1 = np.reshape(tippoint_L1, (135, 240, 8))
+                tippoint_L1 = np.array(tippoint_L1)
+                tippoint_L1 = cv2.resize(tippoint_L1, (41, 23))
+                print(Mconv7_stage6_L1.shape, tippoint_L1.shape)
+                Mconv7_stage6_L1 = np.concatenate((Mconv7_stage6_L1, tippoint_L1), axis=2)
+                Mconv7_stage6_L1 = np.reshape(Mconv7_stage6_L1, (1, 46, 23, 41))
+                print(Mconv7_stage6_L1.shape)
+                
+                Mconv7_stage6_L2 = np.reshape(Mconv7_stage6_L2, (23, 41, 19))
+                tippoint_L2 = np.reshape(tippoint_L2, (135, 240, 4))
+                tippoint_L2 = np.array(tippoint_L2)
+                tippoint_L2 = cv2.resize(tippoint_L2, (41, 23))
+                tippoint_L2 = np.reshape(tippoint_L2, (23, 41, 4))
+                print(Mconv7_stage6_L2.shape, tippoint_L2.shape)
+                Mconv7_stage6_L2 = np.concatenate((Mconv7_stage6_L2, tippoint_L2), axis=2)
+                Mconv7_stage6_L2 = np.reshape(Mconv7_stage6_L2, (1, 23, 23, 41))
+                print(Mconv7_stage6_L2.shape)
+                
+                # Mconv7_stage6_L1.extend([out2_1, out2_2])
+
+            # extract outputs, resize, and remove padding
+            # heatmap = np.transpose(np.squeeze(net.blobs[output_blobs.keys()[1]].data), (1, 2, 0))  # output 1 is heatmaps
             heatmap = np.transpose(np.squeeze(Mconv7_stage6_L2), (1, 2, 0))  # output 1 is heatmaps
             heatmap = cv2.resize(heatmap, (0, 0), fx=stride, fy=stride, interpolation=cv2.INTER_CUBIC)
             heatmap = heatmap[:imageToTest_padded.shape[0] - pad[2], :imageToTest_padded.shape[1] - pad[3], :]
@@ -98,11 +137,17 @@ class Body(object):
         # find connection in the specified sequence, center 29 is in the position 15
         limbSeq = [[2, 3], [2, 6], [3, 4], [4, 5], [6, 7], [7, 8], [2, 9], [9, 10], \
                    [10, 11], [2, 12], [12, 13], [13, 14], [2, 1], [1, 15], [15, 17], \
-                   [1, 16], [16, 18], [3, 17], [6, 18]]
+                   [1, 16], [16, 18], [3, 17], [6, 18]
+        # limbSeq = [[2, 3], [2, 6], [3, 4], [4, 5], [6, 7], [7, 8], [2, 9], [9, 10], \
+        #           [10, 11], [2, 12], [12, 13], [13, 14], [2, 1], [1, 15], [15, 17], \
+        #           [1, 16], [16, 18], [3, 17], [6, 18], [8, 19]]
         # the middle joints heatmap correpondence
         mapIdx = [[31, 32], [39, 40], [33, 34], [35, 36], [41, 42], [43, 44], [19, 20], [21, 22], \
                   [23, 24], [25, 26], [27, 28], [29, 30], [47, 48], [49, 50], [53, 54], [51, 52], \
                   [55, 56], [37, 38], [45, 46]]
+        # mapIdx = [[31, 32], [39, 40], [33, 34], [35, 36], [41, 42], [43, 44], [19, 20], [21, 22], \
+        #           [23, 24], [25, 26], [27, 28], [29, 30], [47, 48], [49, 50], [53, 54], [51, 52], \
+        #           [55, 56], [37, 38], [45, 46], [57, 58]]
 
         connection_all = []
         special_k = []
