@@ -4,32 +4,20 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import glob
 
 
-
-nameList = ["hideki_01", "hideki_02",
-            "mcllroy_01", "mcllroy_02", "mcllroy_03", "mcllroy_04",
-            "rose_01", "rose_02",
-            "spieth_01", "spieth_02", "spieth_03",
-            "thomas_02",
-            "tiger_03"
-            ]
-
-nameList = ["hideki_01", "hideki_02",
-            "mcllroy_01","mcllroy_03", "mcllroy_04",
-            "spieth_02", "spieth_03",
-            "thomas_02",
-            "tiger_03"
-            ]
-
-for filename in nameList:
+for filenames in glob.glob('../../Sample_trim/video/raw_video/*'):
+    filename = filenames.split("/")[-1].split(".")[0]
     print(filename)
     codec = cv2.VideoWriter_fourcc(*'mp4v')
-    video = cv2.VideoWriter("video/est/%s.mp4"%(filename), codec, 30, (1920, 1080))
-    DATA = json.load(open("data/analyse/%s.json"%(filename), 'r'))
-    cap = cv2.VideoCapture("video/%s.mp4"%(filename))
-    if not os.path.exists("images/analyse/%s"%(filename)):
-        os.mkdir("images/analyse/%s"%(filename))
+    video = cv2.VideoWriter("../../Sample_trim/video/angle_video/%s.mp4"%(filename), codec, 30, (1920, 1080))
+    DATA = json.load(open("../../Sample_trim/json/est_json/%s.json"%(filename), 'r'))
+    cap = cv2.VideoCapture("../../Sample_trim/video/raw_video/%s.mp4"%(filename))
+    if not os.path.exists("../../Sample_trim/images/pose/%s"%(filename)):
+        os.mkdir("../../Sample_trim/images/pose/%s"%(filename))
+    if not os.path.exists("../../Sample_trim/images/draw_angle/%s"%(filename)):
+        os.mkdir("../../Sample_trim/images/draw_angle/%s"%(filename))
 
     time = []
     angleRow = []
@@ -68,10 +56,10 @@ for filename in nameList:
             angle = math.atan2(angle[1], angle[0]) * 180 / math.pi
             time.append(i)
             angleRow.append(angle)
-            with open("data/analyse_result/%s.json"%(filename), 'w') as f:
+            with open("../../Sample_trim/json/angle/%s.json"%(filename), 'w') as f:
                 json.dump(angleRow, f, indent=4)
 
-            cv2.imwrite("images/analyse/%s/%04d.jpg"%(filename, i), img)
+            cv2.imwrite("../../Sample_trim/images/draw_angle/%s/%04d.jpg"%(filename, i), img)
             # img = cv2.resize(img, (1280, 640))
             # cv2.imshow("A", img)
             # cv2.waitKey(30)
@@ -96,51 +84,52 @@ for filename in nameList:
     print(changePhase)
 
     plt.plot(time, angleRow)
-    plt.savefig("data/analyse_result/%s.png"%(filename))
+    plt.savefig("../../Sample_trim/images/pose/%s/angle.png"%(filename))
     # plt.show()
     plt.gca().clear()
     
+    if len(changePhase)==6:
+        # top pose detection
+        topPhase = {}
+        for i in range(changePhase[2], changePhase[3]):
+            topPhase.update({i : angleRow[i]})
+        score = sorted(topPhase.items(), key=lambda x:x[1])
+        print("top : ", score[0][0])
 
-    # top pose detection
-    topPhase = {}
-    for i in range(changePhase[2], changePhase[3]):
-        topPhase.update({i : angleRow[i]})
-    score = sorted(topPhase.items(), key=lambda x:x[1])
-    print("top : ", score[0][0])
+        diff = []
+        preAngle = 0
+        for i in range(len(angleRow)):
+            angle = angleRow[i]
+            diff.append(angle - preAngle)
+            preAngle = angle
 
-    diff = []
-    preAngle = 0
-    for i in range(len(angleRow)):
-        angle = angleRow[i]
-        diff.append(angle - preAngle)
-        preAngle = angle
+        # plt.plot(diff)
+        # plt.ylim(-20, 20)
+        # plt.show()
+        # plt.gca().clear()
+        # plt.savefig("diff.png")
+        
 
-    # plt.plot(diff)
-    # plt.ylim(-20, 20)
-    # plt.show()
-    # plt.gca().clear()
-    # plt.savefig("diff.png")
-    
+        addressPhase = []
+        for i in range(changePhase[0], changePhase[1]):
+            if np.absolute(diff[i])<10:
+                addressPhase.append(i)
+        print("address : ", addressPhase[int(len(addressPhase)/2)])
 
-    addressPhase = []
-    for i in range(changePhase[0], changePhase[1]):
-        if np.absolute(diff[i])<10:
-            addressPhase.append(i)
-    print("address : ", addressPhase[int(len(addressPhase)/2)])
-
-    finishPhase = []
-    for i in range(changePhase[4], changePhase[-1]):
-        if np.absolute(diff[i])<10 and angleRow[i]>90:
-            finishPhase.append(i)
-    print("finish : ", finishPhase[int(len(finishPhase)/2)])
+        finishPhase = []
+        for i in range(changePhase[4], changePhase[-1]):
+            if np.absolute(diff[i])<10 and angleRow[i]>90:
+                finishPhase.append(i)
+        print("finish : ", finishPhase[int(len(finishPhase)/2)])
 
 
-    cap = cv2.VideoCapture("video/%s.mp4"%(filename))
-    for i in range(int(cap.get(cv2.CAP_PROP_FRAME_COUNT))):
-        ret, img = cap.read()
-        if i==score[0][0]:
-            cv2.imwrite("images/analyse/%s_top.jpg"%(filename), img)
-        elif i==addressPhase[int(len(addressPhase)/2)]:
-            cv2.imwrite("images/analyse/%s_address.jpg"%(filename), img)
-        elif i==finishPhase[int(len(finishPhase)/2)]:
-            cv2.imwrite("images/analyse/%s_finish.jpg"%(filename), img)
+        cap = cv2.VideoCapture("../../Sample_trim/video/raw_video/%s.mp4"%(filename))
+        for i in range(int(cap.get(cv2.CAP_PROP_FRAME_COUNT))):
+            ret, img = cap.read()
+            if i==score[0][0]:
+                cv2.imwrite("../../Sample_trim/images/pose/%s_top.jpg"%(filename), img)
+            # elif i==addressPhase[int(len(addressPhase)/2)]:
+            elif i==addressPhase[10]:
+                cv2.imwrite("../../Sample_trim/images/pose/%s_address.jpg"%(filename), img)
+            elif i==finishPhase[-10]:
+                cv2.imwrite("../../Sample_trim/images/pose/%s_finish.jpg"%(filename), img)
