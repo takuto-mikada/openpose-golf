@@ -50,7 +50,7 @@ class CocoTrainDataset(Dataset):
         sample['paf_maps'] = paf_maps
         # for i in range(len(paf_maps)):
         #     print(paf_maps[i].max())
-        #     cv2.imshow("S", paf_maps[i])
+        #     cv2.imshow("S", keypoint_maps[i])
         #     cv2.waitKey()
 
         # image = sample['image'].astype(np.float32)
@@ -64,15 +64,15 @@ class CocoTrainDataset(Dataset):
 
     def _generate_keypoint_maps(self, sample):
         n_rows, n_cols, _ = sample['image'].shape
-        keypoint_maps = np.zeros(shape=(len(LEFT_ARM)+1, 135, 240), dtype=np.float32)
+        keypoint_maps = np.zeros(shape=(len(LEFT_ARM)+2, 135, 240), dtype=np.float32)
         count = 0
         for KEY in LEFT_ARM:
-            if type(KEY[1])==int:
-                keypoint = sample["label"]["key"][KEY[1]][str(KEY[1])]
-            else:
-                keypoint = sample["label"][str(KEY[1])]
+            keypoint = sample["label"]["key"][KEY[0]][str(KEY[0])]
             self._add_gaussian(keypoint_maps[count], keypoint[0], keypoint[1], self._stride, self._sigma)
             count += 1
+            if KEY[0]==LEFT_ARM[-1][0]:
+                keypoint = sample["label"][str(KEY[1])]
+                self._add_gaussian(keypoint_maps[count], keypoint[0], keypoint[1], self._stride, self._sigma)
         keypoint_maps[-1] = 1 - keypoint_maps.max(axis=0)
         return keypoint_maps
 
@@ -133,11 +133,19 @@ class CocoTrainDataset(Dataset):
             return
         x_ba /= norm_ba
         y_ba /= norm_ba
-        x_ba = abs(x_ba)
-        y_ba = abs(y_ba)
 
-        cv2.line(paf_map[0], (int(x_a), int(y_a)), (int(x_b), int(y_b)), (x_ba, x_ba, x_ba), 1)
-        cv2.line(paf_map[1], (int(x_a), int(y_a)), (int(x_b), int(y_b)), (y_ba, y_ba, y_ba), 1)
+        if x_ba>=0:
+            cv2.line(paf_map[0], (int(x_a), int(y_a)), (int(x_b), int(y_b)), (x_ba, x_ba, x_ba), 2)
+        else:
+            cv2.line(paf_map[0], (int(x_a), int(y_a)), (int(x_b), int(y_b)), (x_ba+1, x_ba+1, x_ba+1), 2)
+            paf_map[0] -= 1
+
+        if y_ba>=0:
+            cv2.line(paf_map[1], (int(x_a), int(y_a)), (int(x_b), int(y_b)), (y_ba, y_ba, y_ba), 2)
+        else:
+            cv2.line(paf_map[1], (int(x_a), int(y_a)), (int(x_b), int(y_b)), (y_ba+1, y_ba+1, y_ba+1), 2)
+            paf_map[1] -= 1
+
 
         # for y in range(y_min, y_max):
         #     for x in range(x_min, x_max):

@@ -42,14 +42,13 @@ def transfer(model, model_weights):
 def draw_bodypose(canvas, candidate, subset):
     KEYPOINT = {}
     stickwidth = 4
-    limbSeq = [[2, 3], [2, 6], [3, 4], [4, 5], [6, 7], [7, 8], [2, 9], [9, 10], \
-               [10, 11], [2, 12], [12, 13], [13, 14], [2, 1], [1, 15], [15, 17], \
-               [1, 16], [16, 18], [3, 17], [6, 18]]
+    # find connection in the specified sequence, center 29 is in the position 15
+    limbSeq = [[0, 1], [1, 2], [2, 3], [3, 4]]
 
     colors = [[255, 0, 0], [255, 85, 0], [255, 170, 0], [255, 255, 0], [170, 255, 0], [85, 255, 0], [0, 255, 0], \
               [0, 255, 85], [0, 255, 170], [0, 255, 255], [0, 170, 255], [0, 85, 255], [0, 0, 255], [85, 0, 255], \
               [170, 0, 255], [255, 0, 255], [255, 0, 170], [255, 0, 85]]
-    for i in range(18):
+    for i in range(5):
         for n in range(len(subset)):
             index = int(subset[n][i])
             if index == -1:
@@ -57,9 +56,9 @@ def draw_bodypose(canvas, candidate, subset):
             x, y = candidate[index][0:2]
             cv2.circle(canvas, (int(x), int(y)), 4, colors[i], thickness=-1)
             KEYPOINT.update({i : [int(x), int(y)]})
-    for i in range(17):
+    for i in range(4):
         for n in range(len(subset)):
-            index = subset[n][np.array(limbSeq[i]) - 1]
+            index = subset[n][np.array(limbSeq[i])]
             if -1 in index:
                 continue
             cur_canvas = canvas.copy()

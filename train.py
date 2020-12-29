@@ -11,29 +11,31 @@ from torchvision import transforms
 from src.get_parameters import get_parameters_conv, get_parameters_conv_depthwise
 
 from src import model
-from src import util
+from src import util_enh as util
 from src.body_enh import Body
 from src.model_enh import add_model
 from src.coco import CocoTrainDataset
 from src.loss import l2_loss
 
+from src.left_arm import estimate
+
 
 json_open = open('../data/json/top_finish.json', 'r')
 data = json.load(json_open)
 
-body = Body('../data/model/body_pose_model.pth', "", False)
+body = Body('../data/model/body_pose_model.pth')
 golf = add_model()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(torch.cuda.is_available())
 batch_size = 5
 num_workers = 1
 stride = 8
-sigma = 7
+sigma = 10
 path_thickness = 1
 batches_per_iter = 10
 log_after = 10
-checkpoint_after = 100
-val_after = 100000
+checkpoint_after = 101
+val_after = 10
 drop_after_epoch = [100, 200, 260]
 checkpoints_folder = "../data/golf_model/left_arm_model"
 print(checkpoints_folder)
@@ -75,7 +77,7 @@ scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=drop_after_epoc
 optimizer.step()
 print(device)
 #golf = DataParallel(golf).cuda()
-golf = golf.cuda(device)
+golf = golf#.cuda(device)
 golf.train()
 for epochId in range(current_epoch, 10000):
     scheduler.step()
@@ -86,27 +88,44 @@ for epochId in range(current_epoch, 10000):
             optimizer.zero_grad()
 
         losses = []
+        print("len :",len(batch_data['path']))
         for i in range(len(batch_data['path'])):
+            print("start")
             images = cv2.imread(batch_data['path'][i])
-            keypoint_maps = batch_data['keypoint_maps'][i].cuda(device)
-            paf_maps = batch_data['paf_maps'][i].cuda(device)
-            featureImage, candidate, subset, ALL_PEAKS = body(images, False)
+            keypoint_maps = batch_data['keypoint_maps'][i]#.cuda(device)
+            paf_maps = batch_data['paf_maps'][i]#.cuda(device)
+
+            featureImage, candidate, subset, ALL_PEAKS = body(images)
             stages_output = golf(featureImage)
 
+            
+
+            # # keypoint map のアノテーション画像確認
             # for i in range(len(keypoint_maps)):
             #     KEY_img = keypoint_maps[i].to('cpu').detach().numpy().copy()
             #     cv2.imshow("S", KEY_img)
             #     cv2.waitKey()
 
+            # # paf map のアノテーション画像確認
+            # for i in range(len(paf_maps)):
+            #     PAF_img = paf_maps[i].to('cpu').detach().numpy().copy()
+            #     cv2.imshow("S", PAF_img)
+            #     cv2.waitKey()
+
+            for KEY in range(len(keypoint_maps)):
+                for loss_idx in range(len(total_losses) // 2):
+                    losses.append(l2_loss(stages_output[loss_idx * 2 + 1][0][KEY], keypoint_maps[KEY], images.shape[0]))
+                    total_losses[loss_idx * 2 + 1] += losses[-1].item() / batches_per_iter
+            
             for KEY in range(len(paf_maps)//2):
                 for loss_idx in range(len(total_losses) // 2):
                     losses.append(l2_loss(stages_output[loss_idx * 2][0][KEY*2], paf_maps[KEY*2], images.shape[0]))
                     losses.append(l2_loss(stages_output[loss_idx * 2][0][KEY*2+1], paf_maps[KEY*2+1], images.shape[0]))
-                    losses.append(l2_loss(stages_output[loss_idx * 2 + 1][0][KEY], keypoint_maps[KEY], images.shape[0]))
-                    total_losses[loss_idx * 2] += losses[-3].item() / batches_per_iter
                     total_losses[loss_idx * 2] += losses[-2].item() / batches_per_iter
-                    total_losses[loss_idx * 2 + 1] += losses[-1].item() / batches_per_iter
-                
+                    total_losses[loss_idx * 2] += losses[-1].item() / batches_per_iter
+                    
+            
+        
         loss = losses[0]
         for loss_idx in range(1, len(losses)):
             loss += losses[loss_idx]
@@ -114,7 +133,9 @@ for epochId in range(current_epoch, 10000):
         loss.backward()
         batch_per_iter_idx += 1
         if batch_per_iter_idx == batches_per_iter:
+            print("before optimizer")
             optimizer.step()
+            print("after optimizer")
             batch_per_iter_idx = 0
             num_iter += 1
         else:
@@ -143,7 +164,10 @@ for epochId in range(current_epoch, 10000):
                         snapshot_name)
         if num_iter % val_after == 0:
             print('Validation...')
-            evaluate(val_labels, val_output_name, val_images_folder, golf)
+            candidate, subset, ALL_PEAKS = estimate(images, stages_output[11], stages_output[10])
+            canvas = copy.deepcopy(images)
+            canvas, KEYPOINT = util.draw_bodypose(canvas, candidate, subset)
+            cv2.imwrite("../data/golf_model/left_arm_images/%05d.jpg"%(num_iter), canvas)
             golf.train()
 
 
