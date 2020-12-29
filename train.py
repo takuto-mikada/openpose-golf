@@ -28,15 +28,15 @@ body = Body('../data/model/body_pose_model.pth')
 golf = add_model()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(torch.cuda.is_available())
-batch_size = 1
+batch_size = 5
 num_workers = 1
 stride = 8
 sigma = 10
 path_thickness = 1
-batches_per_iter = 1
+batches_per_iter = 10
 log_after = 10
 checkpoint_after = 10
-val_after = 1
+val_after = 10
 drop_after_epoch = [100, 200, 260]
 checkpoints_folder = "../data/golf_model/left_arm_model"
 print(checkpoints_folder)
