@@ -25,7 +25,16 @@ json_open = open('../data/json/top_finish.json', 'r')
 data = json.load(json_open)
 
 body = Body('../data/model/body_pose_model.pth')
+
 golf = add_model()
+if torch.cuda.is_available():
+    golf = golf.cuda()
+golf_dict = util.add_transfer(golf, torch.load("../data/golf_model/left_arm_model/checkpoint_iter_60.pth"))#,  map_location=torch.device('cpu')))
+golf.load_state_dict(golf_dict)
+# self.add_model.load_state_dict(torch.load(add_model_path))
+golf.eval()
+
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(torch.cuda.is_available())
 batch_size = 5
@@ -59,7 +68,7 @@ optimizer = optim.Adam([
         {'params': get_parameters_conv_depthwise(golf, 'weight'), 'weight_decay': 0},
         {'params': get_parameters_conv_depthwise(golf, 'bias'), 'weight_decay': 0},
     ], lr=4e-5, weight_decay=5e-4)
-num_iter = 0
+num_iter = 60
 current_epoch = 0
 drop_after_epoch = [100, 200, 260]
 scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=drop_after_epoch, gamma=0.333)
@@ -77,8 +86,8 @@ scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=drop_after_epoc
 
 optimizer.step()
 print(device)
-#golf = DataParallel(golf).cuda()
-golf = golf#.cuda(device)
+golf = DataParallel(golf).cuda()
+golf = golf.cuda(device)
 golf.train()
 for epochId in range(current_epoch, 10000):
     scheduler.step()
@@ -91,8 +100,8 @@ for epochId in range(current_epoch, 10000):
         losses = []
         for i in range(len(batch_data['path'])):
             images = cv2.imread(batch_data['path'][i])
-            keypoint_maps = batch_data['keypoint_maps'][i]#.cuda(device)
-            paf_maps = batch_data['paf_maps'][i]#.cuda(device)
+            keypoint_maps = batch_data['keypoint_maps'][i].cuda(device)
+            paf_maps = batch_data['paf_maps'][i].cuda(device)
 
             featureImage, candidate, subset, ALL_PEAKS = body(images)
             stages_output = golf(featureImage)
@@ -137,6 +146,8 @@ for epochId in range(current_epoch, 10000):
             num_iter += 1
         else:
             continue
+        
+        print(num_iter)
 
         if num_iter % log_after == 0:
             print('Iter: {}'.format(num_iter))
@@ -169,9 +180,12 @@ for epochId in range(current_epoch, 10000):
             cv2.imwrite("../data/golf_model/left_arm_images/%05d/canvas.jpg"%(num_iter), canvas)
             
             keyImage = np.reshape(stages_output[11].to('cpu').detach().numpy().copy(), (1, 6, 135, 240))
-            keyImage = np.transpose(np.squeeze(keyImage), (1, 2, 0))
+            keyImage = np.transpose(np.squeeze(keyImage), (1, 2, 0))*256
             pafImage = np.reshape(stages_output[10].to('cpu').detach().numpy().copy(), (1, 8, 135, 240))
-            pafImage = np.transpose(np.squeeze(pafImage), (1, 2, 0))
+            pafImage = np.transpose(np.squeeze(pafImage), (1, 2, 0))*128+128
+            print(np.max(keyImage[:,:,4]))
+            print(np.max(pafImage[:,:,6]))
+
 
             for keys in range(6):
                 cv2.imwrite("../data/golf_model/left_arm_images/%05d/key.jpg"%(num_iter), keyImage[:,:,keys])
