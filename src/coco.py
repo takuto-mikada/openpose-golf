@@ -11,7 +11,7 @@ from torch.utils.data.dataset import Dataset
 
 BODY_PARTS_KPT_IDS = [[1, 8], [8, 9], [9, 10], [1, 11], [11, 12], [12, 13], [1, 2], [2, 3], [3, 4], [2, 16],
                       [1, 5], [5, 6], [6, 7], [5, 17], [1, 0], [0, 14], [0, 15], [14, 16], [15, 17], [4, 18], [7, 18]]
-LEFT_ARM = [[0, 1], [1, 2], [2, 3], [3, "tip"]]
+LEFT_ARM = [[3, "tip"]]
 
 
 def get_mask(segmentations, mask):
@@ -64,16 +64,12 @@ class CocoTrainDataset(Dataset):
 
     def _generate_keypoint_maps(self, sample):
         n_rows, n_cols, _ = sample['image'].shape
-        keypoint_maps = np.zeros(shape=(len(LEFT_ARM)+2, 135, 240), dtype=np.float32)
+        keypoint_maps = np.zeros(shape=(len(LEFT_ARM), 135, 240), dtype=np.float32)
         count = 0
         for KEY in LEFT_ARM:
-            keypoint = sample["label"]["key"][KEY[0]][str(KEY[0])]
+            keypoint = sample["label"][str(KEY[1])]
             self._add_gaussian(keypoint_maps[count], keypoint[0], keypoint[1], self._stride, self._sigma)
-            count += 1
-            if KEY[0]==LEFT_ARM[-1][0]:
-                keypoint = sample["label"][str(KEY[1])]
-                self._add_gaussian(keypoint_maps[count], keypoint[0], keypoint[1], self._stride, self._sigma)
-        keypoint_maps[-1] = 1 - keypoint_maps.max(axis=0)
+        # keypoint_maps[-1] = 1 - keypoint_maps.max(axis=0)
         return keypoint_maps
 
     def _add_gaussian(self, keypoint_map, x, y, stride, sigma):

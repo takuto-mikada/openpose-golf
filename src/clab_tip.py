@@ -248,10 +248,8 @@ def estimate(oriImg, keyImage, pafImage):
     multiplier = [x * boxsize / oriImg.shape[0] for x in scale_search]
     # heatmap_avg = np.zeros((oriImg.shape[0], oriImg.shape[1], 5))
     # paf_avg = np.zeros((oriImg.shape[0], oriImg.shape[1], 8))
-    heatmap_avg = np.zeros((135, 240, 5))
-    paf_avg = np.zeros((135, 240, 8))
-    heatmap_avg = np.zeros((1080, 1920, 6))
-    paf_avg = np.zeros((1080, 1920, 8))
+    heatmap_avg = np.zeros((1080, 1920, 1))
+    paf_avg = np.zeros((1080, 1920, 2))
 
     for m in range(len(multiplier)):
         scale = multiplier[m]
@@ -260,14 +258,14 @@ def estimate(oriImg, keyImage, pafImage):
         im = np.transpose(np.float32(imageToTest_padded[:, :, :, np.newaxis]), (3, 2, 0, 1)) / 256 - 0.5
         im = np.ascontiguousarray(im)
 
-        tippoint_L2 = np.reshape(keyImage.to('cpu').detach().numpy().copy(), (1, 6, 135, 240))
+        tippoint_L2 = np.reshape(keyImage.to('cpu').detach().numpy().copy(), (1, 1, 135, 240))
         heatmap = np.transpose(np.squeeze(tippoint_L2), (1, 2, 0))
         heatmap = cv2.resize(heatmap, (0, 0), fx=stride, fy=stride, interpolation=cv2.INTER_CUBIC)
         # heatmap = heatmap[:imageToTest_padded.shape[0] - pad[2], :imageToTest_padded.shape[1] - pad[3], :]
         heatmap = cv2.resize(heatmap, (oriImg.shape[1], oriImg.shape[0]), interpolation=cv2.INTER_CUBIC)
         # heatmap = cv2.resize(heatmap, (240, 135))
         
-        tippoint_L1 = np.reshape(pafImage.to('cpu').detach().numpy().copy(), (1, 8, 135, 240))
+        tippoint_L1 = np.reshape(pafImage.to('cpu').detach().numpy().copy(), (1, 2, 135, 240))
         paf = np.transpose(np.squeeze(tippoint_L1), (1, 2, 0))  # output 0 is PAFs
         paf = cv2.resize(paf, (0, 0), fx=stride, fy=stride, interpolation=cv2.INTER_CUBIC)
         # paf = paf[:imageToTest_padded.shape[0] - pad[2], :imageToTest_padded.shape[1] - pad[3], :]
@@ -309,9 +307,9 @@ def estimate(oriImg, keyImage, pafImage):
         peak_counter += len(peaks)
 
     # find connection in the specified sequence, center 29 is in the position 15
-    limbSeq = [[0, 1], [1, 2], [2, 3], [3, 4]]
+    limbSeq = [[0, 1]]
     # the middle joints heatmap correpondence
-    mapIdx = [[0, 1], [2, 3], [4, 5], [6, 7]]
+    mapIdx = [[0, 1]]
 
     connection_all = []
     special_k = []

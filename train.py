@@ -18,7 +18,7 @@ from src.model_enh import add_model
 from src.coco import CocoTrainDataset
 from src.loss import l2_loss
 
-from src.left_arm import estimate
+from src.clab_tip import estimate
 
 
 json_open = open('../data/json/top_finish.json', 'r')
@@ -27,27 +27,26 @@ data = json.load(json_open)
 body = Body('../data/model/body_pose_model.pth')
 
 golf = add_model()
-if torch.cuda.is_available():
-    golf = golf.cuda()
-golf_dict = util.add_transfer(golf, torch.load("../data/golf_model/left_arm_model/checkpoint_iter_60.pth"))#,  map_location=torch.device('cpu')))
-golf.load_state_dict(golf_dict)
-# self.add_model.load_state_dict(torch.load(add_model_path))
-golf.eval()
+# if torch.cuda.is_available():
+#     golf = golf.cuda()
+# golf_dict = util.add_transfer(golf, torch.load("../data/golf_model/clab_tip_model/checkpoint_iter_60.pth"))#,  map_location=torch.device('cpu')))
+# golf.load_state_dict(golf_dict)
+# golf.eval()
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(torch.cuda.is_available())
-batch_size = 5
+batch_size = 1
 num_workers = 1
 stride = 8
 sigma = 10
 path_thickness = 1
 batches_per_iter = 10
-log_after = 10
-checkpoint_after = 10
-val_after = 10
+log_after = 1
+checkpoint_after = 1
+val_after = 1
 drop_after_epoch = [100, 200, 260]
-checkpoints_folder = "../data/golf_model/left_arm_model"
+checkpoints_folder = "../data/golf_model/clab_tip_model"
 print(checkpoints_folder)
 
 dataset = CocoTrainDataset('../data/json/top_finish.json', '',
@@ -68,7 +67,7 @@ optimizer = optim.Adam([
         {'params': get_parameters_conv_depthwise(golf, 'weight'), 'weight_decay': 0},
         {'params': get_parameters_conv_depthwise(golf, 'bias'), 'weight_decay': 0},
     ], lr=4e-5, weight_decay=5e-4)
-num_iter = 60
+num_iter = 0
 current_epoch = 0
 drop_after_epoch = [100, 200, 260]
 scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=drop_after_epoch, gamma=0.333)
@@ -86,8 +85,9 @@ scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=drop_after_epoc
 
 optimizer.step()
 print(device)
-golf = DataParallel(golf).cuda()
-golf = golf.cuda(device)
+if torch.cuda.is_available():
+    golf = DataParallel(golf).cuda()
+    golf = golf.cuda(device)
 golf.train()
 for epochId in range(current_epoch, 10000):
     scheduler.step()
@@ -100,8 +100,11 @@ for epochId in range(current_epoch, 10000):
         losses = []
         for i in range(len(batch_data['path'])):
             images = cv2.imread(batch_data['path'][i])
-            keypoint_maps = batch_data['keypoint_maps'][i].cuda(device)
-            paf_maps = batch_data['paf_maps'][i].cuda(device)
+            keypoint_maps = batch_data['keypoint_maps'][i]
+            paf_maps = batch_data['paf_maps'][i]
+            if torch.cuda.is_available():
+                keypoint_maps = keypoint_maps.cuda(device)
+                paf_maps = paf_maps.cuda(device)
 
             featureImage, candidate, subset, ALL_PEAKS = body(images)
             stages_output = golf(featureImage)
@@ -157,10 +160,6 @@ for epochId in range(current_epoch, 10000):
                     loss_idx + 1, total_losses[loss_idx * 2] / log_after))
             for loss_idx in range(len(total_losses)):
                 total_losses[loss_idx] = 0
-            # print(np.array(stages_output[10][0][0].to('cpu').detach().numpy().copy(), dtype=np.uint8).shape)
-            # cv2.imwrite("golf_model/tip_model_image/%04d_map1.jpg"%(num_iter), np.reshape(np.array(stages_output[10][0][0].to('cpu').detach().numpy().copy(), dtype=np.uint8), (135, 240, 1)))
-            # cv2.imwrite("golf_model/tip_model_image/%04d_map2.jpg"%(num_iter), np.reshape(np.array(stages_output[10][0][1].to('cpu').detach().numpy().copy(), dtype=np.uint8), (135, 240, 1)))
-            # cv2.imwrite("golf_model/tip_model_image/%04d_key.jpg"%(num_iter), np.reshape(np.array(stages_output[11][0].to('cpu').detach().numpy().copy(), dtype=np.uint8), (135, 240, 1)))
         if num_iter % checkpoint_after == 0:
             snapshot_name = '{}/checkpoint_iter_{}.pth'.format(checkpoints_folder, num_iter)
             print(snapshot_name)
@@ -172,26 +171,24 @@ for epochId in range(current_epoch, 10000):
                         snapshot_name)
         if num_iter % val_after == 0:
             print('Validation...')
-            candidate, subset, ALL_PEAKS = estimate(images, stages_output[11], stages_output[10])
-            canvas = copy.deepcopy(images)
-            canvas, KEYPOINT = util.draw_bodypose(canvas, candidate, subset)
-            if not os.path.isfile("../data/golf_model/left_arm_images/%05d"%(num_iter)):
-                os.mkdir("../data/golf_model/left_arm_images/%05d"%(num_iter))
-            cv2.imwrite("../data/golf_model/left_arm_images/%05d/canvas.jpg"%(num_iter), canvas)
+            # candidate, subset, ALL_PEAKS = estimate(images, stages_output[11], stages_output[10])
+            # canvas = copy.deepcopy(images)
+            # canvas, KEYPOINT = util.draw_bodypose(canvas, candidate, subset)
+            if not os.path.isfile("../data/golf_model/clab_tip_images/%05d"%(num_iter)):
+                os.mkdir("../data/golf_model/clab_tip_images/%05d"%(num_iter))
+            # cv2.imwrite("../data/golf_model/clab_tip_images/%05d/canvas.jpg"%(num_iter), canvas)
             
-            keyImage = np.reshape(stages_output[11].to('cpu').detach().numpy().copy(), (1, 6, 135, 240))
+            keyImage = np.reshape(stages_output[11].to('cpu').detach().numpy().copy(), (1, len(keypoint_maps), 135, 240))
             keyImage = np.transpose(np.squeeze(keyImage), (1, 2, 0))*256
-            pafImage = np.reshape(stages_output[10].to('cpu').detach().numpy().copy(), (1, 8, 135, 240))
+            pafImage = np.reshape(stages_output[10].to('cpu').detach().numpy().copy(), (1, len(paf_maps), 135, 240))
             pafImage = np.transpose(np.squeeze(pafImage), (1, 2, 0))*128+128
-            print(np.max(keyImage[:,:,4]))
-            print(np.max(pafImage[:,:,6]))
 
 
-            for keys in range(6):
-                cv2.imwrite("../data/golf_model/left_arm_images/%05d/key.jpg"%(num_iter), keyImage[:,:,keys])
-            for pafs in range(4):
-                cv2.imwrite("../data/golf_model/left_arm_images/%05d/map_x_%d.jpg"%(num_iter, pafs), pafImage[:,:,pafs*2])
-                cv2.imwrite("../data/golf_model/left_arm_images/%05d/map_y_%d.jpg"%(num_iter, pafs), pafImage[:,:,pafs*2+1])
+            for keys in range(len(keypoint_maps)):
+                cv2.imwrite("../data/golf_model/clab_tip_images/%05d/key.jpg"%(num_iter), keyImage[:,:,keys])
+            for pafs in range(len(paf_maps)//2):
+                cv2.imwrite("../data/golf_model/clab_tip_images/%05d/map_x_%d.jpg"%(num_iter, pafs), pafImage[:,:,pafs*2])
+                cv2.imwrite("../data/golf_model/clab_tip_images/%05d/map_y_%d.jpg"%(num_iter, pafs), pafImage[:,:,pafs*2+1])
             
             golf.train()
 
