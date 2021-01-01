@@ -36,15 +36,15 @@ golf = add_model()
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(torch.cuda.is_available())
-batch_size = 1
+batch_size = 5
 num_workers = 1
 stride = 8
 sigma = 10
 path_thickness = 1
 batches_per_iter = 10
-log_after = 1
-checkpoint_after = 1
-val_after = 1
+log_after = 10
+checkpoint_after = 10
+val_after = 10
 drop_after_epoch = [100, 200, 260]
 checkpoints_folder = "../data/golf_model/clab_tip_model"
 print(checkpoints_folder)
@@ -178,10 +178,12 @@ for epochId in range(current_epoch, 10000):
                 os.mkdir("../data/golf_model/clab_tip_images/%05d"%(num_iter))
             # cv2.imwrite("../data/golf_model/clab_tip_images/%05d/canvas.jpg"%(num_iter), canvas)
             
-            keyImage = np.reshape(stages_output[11].to('cpu').detach().numpy().copy(), (1, len(keypoint_maps), 135, 240))
-            keyImage = np.transpose(np.squeeze(keyImage), (1, 2, 0))*256
-            pafImage = np.reshape(stages_output[10].to('cpu').detach().numpy().copy(), (1, len(paf_maps), 135, 240))
-            pafImage = np.transpose(np.squeeze(pafImage), (1, 2, 0))*128+128
+            print(stages_output[11].shape)
+            
+            keyImage = np.reshape(stages_output[11].to('cpu').detach().numpy().copy(), (len(keypoint_maps), 135, 240))
+            keyImage = np.transpose(keyImage, (1, 2, 0))*256
+            pafImage = np.reshape(stages_output[10].to('cpu').detach().numpy().copy(), (len(paf_maps), 135, 240))
+            pafImage = np.transpose(pafImage, (1, 2, 0))*128+128
 
 
             for keys in range(len(keypoint_maps)):
