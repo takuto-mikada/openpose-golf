@@ -42,7 +42,7 @@ def add_transfer(model, model_weights):
     transfered_model_weights = {}
     print(model_weights.keys())
     for weights_name in model.state_dict().keys():
-        transfered_model_weights[weights_name] = model_weights["module.%s"%(weights_name)]
+        transfered_model_weights[weights_name] = model_weights["%s"%(weights_name)]
     return transfered_model_weights
 
 # draw the body keypoint and lims

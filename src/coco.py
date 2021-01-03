@@ -53,9 +53,9 @@ class CocoTrainDataset(Dataset):
         #     cv2.imshow("S", keypoint_maps[i])
         #     cv2.waitKey()
 
-        # image = sample['image'].astype(np.float32)
-        # image = (image - 128) / 256
-        # sample['image'] = image.transpose((2, 0, 1))
+        image = sample['image'].astype(np.float32)
+        image = (image - 128) / 256
+        sample['image'] = image.transpose((2, 0, 1))
         del sample['label']
         return sample
 
@@ -130,27 +130,27 @@ class CocoTrainDataset(Dataset):
         x_ba /= norm_ba
         y_ba /= norm_ba
 
-        if x_ba>=0:
-            cv2.line(paf_map[0], (int(x_a), int(y_a)), (int(x_b), int(y_b)), (x_ba, x_ba, x_ba), 2)
-        else:
-            cv2.line(paf_map[0], (int(x_a), int(y_a)), (int(x_b), int(y_b)), (x_ba+1, x_ba+1, x_ba+1), 2)
-            paf_map[0] -= 1
+        # if x_ba>=0:
+        #     cv2.line(paf_map[0], (int(x_a), int(y_a)), (int(x_b), int(y_b)), (x_ba, x_ba, x_ba), 2)
+        # else:
+        #     cv2.line(paf_map[0], (int(x_a), int(y_a)), (int(x_b), int(y_b)), (x_ba+1, x_ba+1, x_ba+1), 2)
+        #     paf_map[0] -= 1
 
-        if y_ba>=0:
-            cv2.line(paf_map[1], (int(x_a), int(y_a)), (int(x_b), int(y_b)), (y_ba, y_ba, y_ba), 2)
-        else:
-            cv2.line(paf_map[1], (int(x_a), int(y_a)), (int(x_b), int(y_b)), (y_ba+1, y_ba+1, y_ba+1), 2)
-            paf_map[1] -= 1
+        # if y_ba>=0:
+        #     cv2.line(paf_map[1], (int(x_a), int(y_a)), (int(x_b), int(y_b)), (y_ba, y_ba, y_ba), 2)
+        # else:
+        #     cv2.line(paf_map[1], (int(x_a), int(y_a)), (int(x_b), int(y_b)), (y_ba+1, y_ba+1, y_ba+1), 2)
+        #     paf_map[1] -= 1
 
 
-        # for y in range(y_min, y_max):
-        #     for x in range(x_min, x_max):
-        #         x_ca = x - x_a
-        #         y_ca = y - y_a
-        #         d = math.fabs(x_ca * y_ba - y_ca * x_ba)
-        #         if d <= thickness:
-        #             paf_map[0, y, x] = x_ba
-        #             paf_map[1, y, x] = y_ba
+        for y in range(y_min, y_max):
+            for x in range(x_min, x_max):
+                x_ca = x - x_a
+                y_ca = y - y_a
+                d = math.fabs(x_ca * y_ba - y_ca * x_ba)
+                if d <= thickness:
+                    paf_map[0, y, x] = x_ba
+                    paf_map[1, y, x] = y_ba
 
 
 class CocoValDataset(Dataset):
