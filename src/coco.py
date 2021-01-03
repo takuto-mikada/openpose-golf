@@ -53,9 +53,9 @@ class CocoTrainDataset(Dataset):
         #     cv2.imshow("S", keypoint_maps[i])
         #     cv2.waitKey()
 
-        image = sample['image'].astype(np.float32)
-        image = (image - 128) / 256
-        sample['image'] = image.transpose((2, 0, 1))
+        #image = sample['image'].astype(np.float32)
+        #image = (image - 128) / 256
+        #sample['image'] = image.transpose((2, 0, 1))
         del sample['label']
         return sample
 
